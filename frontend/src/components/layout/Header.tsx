@@ -345,55 +345,48 @@ export default function Header() {
           </button>
         </div>
 
-        {/* Mode Switcher - 未运行时可选择，运行时禁用 */}
+        {/* Mode Switcher */}
         <div className={cn(
           'flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-1 rounded-full border h-8',
           themeStyle === 'apple-glass'
             ? 'border-black/10 bg-white/40'
-            : 'border-white/10 bg-white/5',
-          status?.running && 'opacity-50'
+            : 'border-white/10 bg-white/5'
         )}>
           <button
             onClick={() => handleModeChange('rule')}
-            disabled={status?.running}
             className={cn(
               'flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all',
-              status?.running && 'cursor-not-allowed',
               (status?.mode === 'rule' || (!status && true))
                 ? (themeStyle === 'apple-glass' ? 'bg-blue-500 text-white' : 'bg-cyan-500 text-white')
                 : (themeStyle === 'apple-glass' ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-white/10')
             )}
-            title={status?.running ? t('header.modeDisabled') : t('proxySettings.modeRule')}
+            title={t('proxySettings.modeRule')}
           >
             <Navigation className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
             <span className="hidden sm:inline">{t('header.rule')}</span>
           </button>
           <button
             onClick={() => handleModeChange('global')}
-            disabled={status?.running}
             className={cn(
               'flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all',
-              status?.running && 'cursor-not-allowed',
               status?.mode === 'global'
                 ? (themeStyle === 'apple-glass' ? 'bg-orange-500 text-white' : 'bg-orange-500 text-white')
                 : (themeStyle === 'apple-glass' ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-white/10')
             )}
-            title={status?.running ? t('header.modeDisabled') : t('proxySettings.modeGlobal')}
+            title={t('proxySettings.modeGlobal')}
           >
             <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
             <span className="hidden sm:inline">{t('header.global')}</span>
           </button>
           <button
             onClick={() => handleModeChange('direct')}
-            disabled={status?.running}
             className={cn(
               'flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all',
-              status?.running && 'cursor-not-allowed',
               status?.mode === 'direct'
                 ? (themeStyle === 'apple-glass' ? 'bg-slate-500 text-white' : 'bg-slate-500 text-white')
                 : (themeStyle === 'apple-glass' ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-white/10')
             )}
-            title={status?.running ? t('header.modeDisabled') : t('proxySettings.modeDirect')}
+            title={t('proxySettings.modeDirect')}
           >
             <Unplug className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
             <span className="hidden sm:inline">{t('header.direct')}</span>

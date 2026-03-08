@@ -527,6 +527,25 @@ func (s *Service) SetMode(mode string) error {
 		return fmt.Errorf("invalid mode: %s", mode)
 	}
 
+	// 如果 Mihomo 正在运行，通知它切换模式
+	if s.running {
+		apiAddr := s.config.ExternalController
+		if apiAddr == "" {
+			apiAddr = "127.0.0.1:9090"
+		}
+
+		reqBody := fmt.Sprintf(`{"mode":"%s"}`, mode)
+		req, err := http.NewRequest("PATCH", "http://"+apiAddr+"/configs", strings.NewReader(reqBody))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/json")
+			client := &http.Client{Timeout: 5 * time.Second}
+			resp, err := client.Do(req)
+			if err == nil {
+				resp.Body.Close()
+			}
+		}
+	}
+
 	return nil
 }
 
