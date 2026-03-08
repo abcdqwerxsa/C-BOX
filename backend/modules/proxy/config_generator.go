@@ -1009,6 +1009,11 @@ func (g *ConfigGenerator) convertProxies(nodes []ProxyNode) []map[string]interfa
 			delete(proxy, "reality")
 		}
 
+		// 🔥 禁用 TFO (TCP Fast Open) - 在某些网络环境（如 WSL）下会导致连接超时
+		// TCP Fast Open 需要 kernel 3.7+ 和网络设备支持，WSL 环境可能不完全兼容
+		delete(proxy, "tfo")
+		delete(proxy, "fast-open")
+
 		// 🔧 通用 TLS 字段转换（适用于所有协议）
 		// 将订阅解析的 tls 对象转换为 Mihomo 需要的扁平字段
 		if tls, ok := proxy["tls"].(map[string]interface{}); ok {
