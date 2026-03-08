@@ -1,0 +1,152 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_time=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Build backend
+        run: |
+          cd backend
+          go build -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=${{ steps.version.outputs.build_time }}" -o p-box .
+
+      - name: Prepare release package
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          OS=${{ matrix.os }}
+          ARCH=${{ matrix.arch }}
+          PACKAGE_NAME=p-box-${VERSION}-${OS}-${ARCH}
+
+          mkdir -p ${PACKAGE_NAME}
+          cp backend/p-box ${PACKAGE_NAME}/
+          cp -r frontend/dist ${PACKAGE_NAME}/frontend
+
+          # Create default config.yaml
+          cat > ${PACKAGE_NAME}/config.yaml << 'EOF'
+          server:
+            port: 8383
+            host: 0.0.0.0
+
+          data_dir: data
+
+          core:
+            type: mihomo
+            api_port: 9090
+
+          proxy:
+            mixed_port: 7890
+            socks_port: 7891
+            allow_lan: true
+            ipv6: false
+            mode: rule
+
+          log:
+            level: info
+            file: data/logs/p-box.log
+            console: true
+
+          security:
+            enabled: false
+            username: admin
+            password: admin123
+          EOF
+
+          # Copy install script if exists
+          cp install.sh ${PACKAGE_NAME}/ || true
+          cp install-nginx.sh ${PACKAGE_NAME}/ || true
+
+          tar -czvf ${PACKAGE_NAME}.tar.gz ${PACKAGE_NAME}
+          echo "package_name=${PACKAGE_NAME}.tar.gz" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: p-box-${{ matrix.os }}-${{ matrix.arch }}
+          path: p-box-*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: P-BOX v${{ steps.version.outputs.version }}
+          body: |
+            ## P-BOX v${{ steps.version.outputs.version }}
+
+            ### Downloads
+            - **Linux AMD64**: p-box-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+            - **Linux ARM64**: p-box-${{ steps.version.outputs.version }}-linux-arm64.tar.gz
+
+            ### Installation
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+            ```
+
+            ### Manual Installation
+            1. Download the package for your platform
+            2. Extract: `tar -xzf p-box-*.tar.gz`
+            3. Run: `cd p-box-* && ./p-box`
+          files: |
+            artifacts/p-box-linux-amd64/*.tar.gz
+            artifacts/p-box-linux-arm64/*.tar.gz
+          draft: false
+          prerelease: false

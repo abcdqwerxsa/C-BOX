@@ -1,0 +1,30 @@
+# Backend build artifacts
+backend/p-box
+backend/p-box.exe
+
+# Frontend build artifacts
+frontend/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Go
+go*.tar.gz
+
+# Archives
+*.tar.gz
+*.zip
