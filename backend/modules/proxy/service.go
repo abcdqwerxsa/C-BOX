@@ -1110,10 +1110,16 @@ func (s *Service) getDNSListenAddress() string {
 }
 
 // parseListenAddress 解析监听地址，返回 IP 和端口
+// 注意：在 TUN 模式下，Mihomo 的 fake-ip DNS 实际监听在 TUN 网关地址 (10.255.255.254)
 func (s *Service) parseListenAddress(addr string) (string, int) {
 	// 默认值
 	defaultIP := "127.0.0.1"
 	defaultPort := 53
+
+	// TUN 模式下，fake-ip DNS 监听在 TUN 网关地址
+	if s.config.TunEnabled || s.config.TransparentMode == "tun" {
+		defaultIP = "10.255.255.254" // TUN 网关地址
+	}
 
 	if addr == "" {
 		return defaultIP, defaultPort
@@ -1125,9 +1131,14 @@ func (s *Service) parseListenAddress(addr string) (string, int) {
 		return defaultIP, defaultPort
 	}
 
-	// 处理 0.0.0.0 的情况，转换为 127.0.0.1
+	// 处理 0.0.0.0 的情况
+	// TUN 模式下使用 TUN 网关地址，否则使用 127.0.0.1
 	if host == "0.0.0.0" || host == "" {
-		host = "127.0.0.1"
+		if s.config.TunEnabled || s.config.TransparentMode == "tun" {
+			host = "10.255.255.254" // TUN 网关地址
+		} else {
+			host = "127.0.0.1"
+		}
 	}
 
 	// 解析端口

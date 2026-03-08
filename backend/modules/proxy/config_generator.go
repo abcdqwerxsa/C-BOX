@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -329,6 +330,9 @@ func (g *ConfigGenerator) GenerateConfig(nodes []ProxyNode, options ConfigGenera
 	// DNS 配置
 	config.DNS = g.generateDNSConfig(options)
 
+	// 🔥 先转换代理节点，以便提取服务器 IP 用于 TUN 排除路由
+	config.Proxies = g.convertProxies(nodes)
+
 	// TUN 配置 (从代理设置读取)
 	if options.EnableTUN {
 		tunSettings := options.TUNSettings
@@ -348,6 +352,13 @@ func (g *ConfigGenerator) GenerateConfig(nodes []ProxyNode, options ConfigGenera
 		routeExcludeAddress := []string{
 			"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12",
 			"127.0.0.0/8", "fc00::/7", "fe80::/10",
+		}
+
+		// 🔥 自动添加代理服务器 IP 到排除路由，防止 TUN 路由循环
+		proxyServerIPs := g.extractProxyServerIPs(config.Proxies)
+		routeExcludeAddress = append(routeExcludeAddress, proxyServerIPs...)
+		if len(proxyServerIPs) > 0 {
+			fmt.Printf("🔒 TUN 排除代理服务器 IP: %v\n", proxyServerIPs)
 		}
 
 		// 从设置覆盖
@@ -419,9 +430,6 @@ func (g *ConfigGenerator) GenerateConfig(nodes []ProxyNode, options ConfigGenera
 			"+.push.apple.com", // 跳过苹果推送
 		},
 	}
-
-	// 转换代理节点
-	config.Proxies = g.convertProxies(nodes)
 
 	// 生成代理组（始终使用模板，确保名称一致）
 	template := options.Template
@@ -599,6 +607,44 @@ func (g *ConfigGenerator) generateDNSConfig(options ConfigGeneratorOptions) *DNS
 	// 未匹配的域名会使用 nameserver（海外 DNS），配合 respect-rules 走代理查询
 
 	return dns
+}
+
+// extractProxyServerIPs 从代理配置中提取服务器 IP 地址
+// 用于 TUN 模式排除路由，防止代理服务器连接被路由到代理自身
+func (g *ConfigGenerator) extractProxyServerIPs(proxies []map[string]interface{}) []string {
+	ipSet := make(map[string]bool)
+	var ips []string
+
+	for _, proxy := range proxies {
+		server, ok := proxy["server"].(string)
+		if !ok || server == "" {
+			continue
+		}
+
+		// 检查是否是 IP 地址
+		if net.ParseIP(server) != nil {
+			if !ipSet[server] {
+				ipSet[server] = true
+				ips = append(ips, server)
+			}
+		} else {
+			// 是域名，尝试解析
+			// 为了安全起见，我们将域名本身也添加到排除列表（Mihomo 会自动解析）
+			// 但更好的方式是只添加 IP，因为域名可能解析到多个 IP
+			// 这里我们先尝试解析，如果失败就跳过
+			addrs, err := net.LookupHost(server)
+			if err == nil {
+				for _, addr := range addrs {
+					if !ipSet[addr] {
+						ipSet[addr] = true
+						ips = append(ips, addr)
+					}
+				}
+			}
+		}
+	}
+
+	return ips
 }
 
 // convertProxies 转换代理节点为 Clash/Mihomo 格式
