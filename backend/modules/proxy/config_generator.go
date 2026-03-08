@@ -733,6 +733,12 @@ func (g *ConfigGenerator) convertProxies(nodes []ProxyNode) []map[string]interfa
 			delete(proxy, "packet_encoding")
 			delete(proxy, "packet-encoding") // 兼容连字符格式
 			delete(proxy, "encryption")
+			// 🔥 禁用 early-data 相关设置（可能导致 CDN 兼容性问题）
+			// max-early-data 和 early-data-header-name 在某些 CDN 环境下会导致 WebSocket 连接失败
+			if wsOpts, ok := proxy["ws-opts"].(map[string]interface{}); ok {
+				delete(wsOpts, "max-early-data")
+				delete(wsOpts, "early-data-header-name")
+			}
 
 		case "vmess":
 			// VMess 需要 uuid, alterId, cipher
@@ -1035,6 +1041,14 @@ func (g *ConfigGenerator) convertProxies(nodes []ProxyNode) []map[string]interfa
 					if headers, ok := transport["headers"].(map[string]interface{}); ok {
 						wsOpts["headers"] = headers
 					}
+					// 🔥 禁用 early-data 相关设置（可能导致某些 CDN 兼容性问题）
+					// max-early-data 和 early-data-header-name 在某些网络环境下会导致 WebSocket 连接失败
+					// if maxEarlyData, ok := transport["max_early_data"].(int); ok && maxEarlyData > 0 {
+					//     wsOpts["max-early-data"] = maxEarlyData
+					//     if headerName, ok := transport["early_data_header_name"].(string); ok {
+					//         wsOpts["early-data-header-name"] = headerName
+					//     }
+					// }
 					if len(wsOpts) > 0 {
 						proxy["ws-opts"] = wsOpts
 					}
