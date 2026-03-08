@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -487,7 +488,9 @@ func (h *Handler) ProxyMihomoSelectProxy(c *gin.Context) {
 	}
 
 	body, _ := io.ReadAll(c.Request.Body)
-	req, _ := http.NewRequest("PUT", "http://"+apiAddr+"/proxies/"+name, bytes.NewReader(body))
+	// URL encode the proxy name for proper routing
+	encodedName := url.PathEscape(name)
+	req, _ := http.NewRequest("PUT", "http://"+apiAddr+"/proxies/"+encodedName, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 5 * time.Second}
