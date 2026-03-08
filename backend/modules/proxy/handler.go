@@ -511,11 +511,11 @@ func (h *Handler) ProxyMihomoSelectProxy(c *gin.Context) {
 // ProxyMihomoTestDelay 代理测试节点延迟
 func (h *Handler) ProxyMihomoTestDelay(c *gin.Context) {
 	name := c.Param("name")
-	url := c.Query("url")
+	testURL := c.Query("url")
 	timeout := c.Query("timeout")
 
-	if url == "" {
-		url = "http://www.gstatic.com/generate_204"
+	if testURL == "" {
+		testURL = "http://www.gstatic.com/generate_204"
 	}
 	if timeout == "" {
 		timeout = "5000"
@@ -526,7 +526,9 @@ func (h *Handler) ProxyMihomoTestDelay(c *gin.Context) {
 		apiAddr = "127.0.0.1:9090"
 	}
 
-	targetURL := fmt.Sprintf("http://%s/proxies/%s/delay?url=%s&timeout=%s", apiAddr, name, url, timeout)
+	// URL encode the proxy name for proper routing
+	encodedName := url.PathEscape(name)
+	targetURL := fmt.Sprintf("http://%s/proxies/%s/delay?url=%s&timeout=%s", apiAddr, encodedName, testURL, timeout)
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(targetURL)
 	if err != nil {
