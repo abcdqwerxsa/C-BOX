@@ -731,6 +731,7 @@ func (g *ConfigGenerator) convertProxies(nodes []ProxyNode) []map[string]interfa
 			}
 			// 删除 Mihomo 不需要的字段
 			delete(proxy, "packet_encoding")
+			delete(proxy, "packet-encoding") // 兼容连字符格式
 			delete(proxy, "encryption")
 
 		case "vmess":
