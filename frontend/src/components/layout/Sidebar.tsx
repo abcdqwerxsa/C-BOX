@@ -59,7 +59,7 @@ export default function Sidebar() {
   const { t } = useTranslation()
   const { isOpen, close } = useSidebar()
   const { themeStyle } = useThemeStore()
-  const { isRunning, fetchStatus } = useProxyStore()
+  const { fetchStatus } = useProxyStore()
   const { activeCore, setActiveCore } = useCoreStore()
   const [appVersion, setAppVersion] = useState('0.0.0')
 
