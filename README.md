@@ -193,6 +193,26 @@ To update to the latest version, simply run the install script again:
 curl -fsSL https://raw.githubusercontent.com/abcdqwerxsa/C-BOX/main/install.sh | sudo bash
 ```
 
+## 🔮 Known Issues & Roadmap
+
+### TFO (TCP Fast Open) Support
+
+TCP Fast Open is currently **disabled** due to compatibility issues in certain environments (especially WSL).
+
+**What is TFO?**
+- Reduces TCP connection latency by allowing data in SYN packet
+- 0-RTT for repeated connections (saves ~1 RTT)
+
+**Why disabled?**
+- WSL2 networking stack has incomplete TFO support
+- Some ISPs/firewalls may block TFO packets
+- Connection timeouts in virtualized environments
+
+**Roadmap:**
+- [ ] Add TFO support toggle in proxy settings UI
+- [ ] Environment detection (auto-enable for native Linux, disable for WSL/VM)
+- [ ] Per-proxy TFO configuration
+
 ## 🤝 Contributing
 
 Pull Requests and Issues are welcome!
