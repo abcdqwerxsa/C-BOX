@@ -17,7 +17,7 @@ NC='\033[0m'
 INSTALL_DIR="/etc/p-box"
 SERVICE_NAME="p-box"
 DEFAULT_PORT=8666
-GITHUB_REPO="star8618/P-BOX"
+GITHUB_REPO="abcdqwerxsa/C-BOX"
 GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
 
 echo -e "${CYAN}"
