@@ -413,11 +413,54 @@ func (s *Service) updateSubscription(sub *Subscription) error {
 	if decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(content)); err == nil {
 		content = string(decoded)
 	}
+	// 也尝试 RawURLEncoding (无填充的 Base64)
+	if decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(content)); err == nil {
+		content = string(decoded)
+	}
 
 	// 解析节点
 	var nodes []*ProxyNode
 
-	if strings.Contains(content, "proxies:") {
+	// 检测 JSON 格式的 Clash 配置
+	trimmedContent := strings.TrimSpace(content)
+	if strings.HasPrefix(trimmedContent, "{") && strings.Contains(content, "\"proxies\"") {
+		// JSON 格式 (Clash 配置)
+		var config struct {
+			Proxies []map[string]interface{} `json:"proxies"`
+		}
+		if err := json.Unmarshal([]byte(content), &config); err == nil {
+			for _, p := range config.Proxies {
+				name, nameOk := p["name"].(string)
+				nodeType, typeOk := p["type"].(string)
+				server, serverOk := p["server"].(string)
+
+				if !nameOk || !typeOk || !serverOk {
+					continue
+				}
+
+				// 获取端口
+				var port int
+				switch v := p["port"].(type) {
+				case int:
+					port = v
+				case float64:
+					port = int(v)
+				}
+
+				// 将完整配置序列化为 JSON 保存
+				configJSON, _ := json.Marshal(p)
+
+				node := &ProxyNode{
+					Name:       name,
+					Type:       nodeType,
+					Server:     server,
+					ServerPort: port,
+					Config:     string(configJSON), // 保存完整配置
+				}
+				nodes = append(nodes, node)
+			}
+		}
+	} else if strings.Contains(content, "proxies:") {
 		// YAML 格式 (Clash 配置) - 保存完整的代理配置
 		var config struct {
 			Proxies []map[string]interface{} `yaml:"proxies"`
