@@ -1044,10 +1044,14 @@ func (s *Service) releasePort53() {
 		if _, err := os.Stat("/etc/resolv.conf.bak"); os.IsNotExist(err) {
 			exec.Command("cp", "/etc/resolv.conf", "/etc/resolv.conf.bak").Run()
 		}
-		// 删除符号链接并创建新文件，指向 Mihomo 的 DNS
+		// 删除符号链接并创建新文件，指向 Mihomo 的 DNS，同时保留备用 DNS
 		os.Remove("/etc/resolv.conf")
-		os.WriteFile("/etc/resolv.conf", []byte("nameserver 127.0.0.1\n"), 0644)
-		s.addLog("已停止 systemd-resolved 并配置 DNS 指向 Mihomo")
+		resolvContent := `nameserver 127.0.0.1
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+`
+		os.WriteFile("/etc/resolv.conf", []byte(resolvContent), 0644)
+		s.addLog("已停止 systemd-resolved 并配置 DNS 指向 Mihomo (备用: 8.8.8.8, 1.1.1.1)")
 	}
 
 	// 方法 2: 停止 dnsmasq（另一个常见的 DNS 服务）
