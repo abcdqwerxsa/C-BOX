@@ -350,8 +350,14 @@ func (g *ConfigGenerator) GenerateConfig(nodes []ProxyNode, options ConfigGenera
 		endpointIndependentNat := true
 		dnsHijack := []string{"any:53", "tcp://any:53"}
 		routeExcludeAddress := []string{
+			// 私有网络
 			"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12",
 			"127.0.0.0/8", "fc00::/7", "fe80::/10",
+			// Cloudflare CDN (常见代理服务器)
+			"104.16.0.0/13", "104.24.0.0/14", "141.101.64.0/18",
+			"162.158.0.0/15", "172.64.0.0/13", "173.245.48.0/20",
+			"188.114.96.0/20", "190.93.240.0/20", "197.234.240.0/22",
+			"198.41.128.0/17",
 		}
 
 		// 🔥 自动添加代理服务器 IP 到排除路由，防止 TUN 路由循环
