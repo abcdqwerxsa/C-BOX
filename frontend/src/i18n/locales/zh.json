@@ -61,7 +61,9 @@
     "rule": "规则",
     "global": "全局",
     "direct": "直连",
-    "modeDisabled": "运行中无法切换模式"
+    "modeDisabled": "运行中无法切换模式",
+    "modeChanged": "模式切换成功",
+    "modeChangeFailed": "模式切换失败"
   },
   "dashboard": {
     "title": "仪表盘",

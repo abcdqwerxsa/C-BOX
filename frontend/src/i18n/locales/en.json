@@ -61,7 +61,9 @@
     "rule": "Rule",
     "global": "Global",
     "direct": "Direct",
-    "modeDisabled": "Cannot switch mode while running"
+    "modeDisabled": "Cannot switch mode while running",
+    "modeChanged": "Mode changed successfully",
+    "modeChangeFailed": "Failed to change mode"
   },
   "dashboard": {
     "title": "Dashboard",

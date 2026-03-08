@@ -9,6 +9,7 @@ import { proxyApi, ProxyStatus } from '@/api'
 import { mihomoApi } from '@/api/mihomo'
 import { authApi, clearAuth } from '@/api/auth'
 import { formatBytes, formatDuration } from '@/lib/utils'
+import { toast } from 'sonner'
 
 // Map paths to nav keys
 const pathToNavKey: Record<string, string> = {
@@ -92,8 +93,9 @@ export default function Header() {
     try {
       await proxyApi.setMode(mode)
       await fetchStatus()
-    } catch {
-      // Ignore errors
+      toast.success(t('header.modeChanged'))
+    } catch (err) {
+      toast.error(t('header.modeChangeFailed') + ': ' + (err instanceof Error ? err.message : String(err)))
     }
   }
 

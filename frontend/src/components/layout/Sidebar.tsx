@@ -90,13 +90,6 @@ export default function Sidebar() {
 
   // 根据核心类型获取主导航项
   const mainNavItems = getMainNavItems(activeCore)
-  
-  // 根据代理状态过滤导航项
-  const filteredMainNavItems = mainNavItems.filter(item => {
-    // 代理切换只有在运行时显示
-    if (item.path === '/proxy-switch') return isRunning
-    return true
-  })
 
   const renderNavItems = (items: typeof mainNavItems) => (
     <div className="space-y-0.5">
@@ -175,7 +168,7 @@ export default function Sidebar() {
         <div className="px-3 py-4 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)] custom-scrollbar">
           <div>
             <div className="px-2 pb-2 text-[10px] font-mono text-slate-500 uppercase tracking-wider">Main Module</div>
-            {renderNavItems(filteredMainNavItems)}
+            {renderNavItems(mainNavItems)}
           </div>
           
           <div>
