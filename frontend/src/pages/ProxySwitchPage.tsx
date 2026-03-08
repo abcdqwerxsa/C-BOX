@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw, Check, GripVertical, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -195,8 +196,9 @@ export default function ProxySwitchPage() {
     try {
       await mihomoApi.selectProxy(groupName, nodeName)
       await fetchProxies()
-    } catch {
-      // Ignore errors
+      toast.success(t('proxy.switchSuccess'))
+    } catch (err) {
+      toast.error(t('proxy.switchFailed') + ': ' + (err instanceof Error ? err.message : String(err)))
     }
   }
 
@@ -205,6 +207,11 @@ export default function ProxySwitchPage() {
     try {
       const delay = await mihomoApi.testDelay(nodeName)
       setDelays(prev => ({ ...prev, [nodeName]: delay }))
+      if (delay === 0) {
+        toast.warning(t('proxy.testFailed'))
+      }
+    } catch (err) {
+      toast.error(t('proxy.testError') + ': ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setTesting(null)
     }
