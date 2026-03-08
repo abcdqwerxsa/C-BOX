@@ -1047,55 +1047,136 @@ func (s *Service) prepareSystemForTUN() {
 
 // releasePort53 释放 53 端口
 func (s *Service) releasePort53() {
+	// 获取实际的 DNS 监听地址
+	dnsListen := s.getDNSListenAddress()
+	dnsIP, dnsPort := s.parseListenAddress(dnsListen)
+
+	s.addLog(fmt.Sprintf("DNS 监听地址: %s (IP: %s, Port: %d)", dnsListen, dnsIP, dnsPort))
+
 	// 检查 53 端口是否被占用
 	if !s.isPortInUse(53) {
-		s.addLog("53 端口未被占用，无需处理")
-		return
+		s.addLog("53 端口未被占用，无需释放")
+	} else {
+		s.addLog("检测到 53 端口被占用，正在释放...")
+
+		// 方法 1: 停止 systemd-resolved（最常见的占用者）
+		if s.isServiceActive("systemd-resolved") {
+			s.addLog("检测到 systemd-resolved 服务，正在停止...")
+			exec.Command("systemctl", "stop", "systemd-resolved").Run()
+			exec.Command("systemctl", "disable", "systemd-resolved").Run()
+		}
+
+		// 方法 2: 停止 dnsmasq（另一个常见的 DNS 服务）
+		if s.isServiceActive("dnsmasq") {
+			s.addLog("检测到 dnsmasq 服务，正在停止...")
+			exec.Command("systemctl", "stop", "dnsmasq").Run()
+			s.addLog("已停止 dnsmasq")
+		}
+
+		// 方法 3: 使用 fuser 强制杀死占用 53 端口的进程
+		if s.isPortInUse(53) {
+			s.addLog("尝试使用 fuser 释放 53 端口...")
+			exec.Command("fuser", "-k", "53/udp").Run()
+			exec.Command("fuser", "-k", "53/tcp").Run()
+			time.Sleep(time.Millisecond * 500)
+		}
+
+		// 最终检查
+		if s.isPortInUse(53) {
+			s.addLog("警告：53 端口可能仍被占用，TUN 模式可能无法正常工作")
+		} else {
+			s.addLog("53 端口已成功释放")
+		}
 	}
 
-	s.addLog("检测到 53 端口被占用，正在释放...")
+	// 配置 resolv.conf
+	s.configureResolvConf(dnsIP, dnsPort)
+}
 
-	// 方法 1: 停止 systemd-resolved（最常见的占用者）
-	if s.isServiceActive("systemd-resolved") {
-		s.addLog("检测到 systemd-resolved 服务，正在停止...")
-		exec.Command("systemctl", "stop", "systemd-resolved").Run()
-		exec.Command("systemctl", "disable", "systemd-resolved").Run()
+// getDNSListenAddress 获取 DNS 监听地址
+func (s *Service) getDNSListenAddress() string {
+	// 默认值
+	defaultListen := "0.0.0.0:53"
 
-		// 备份并修改 resolv.conf
-		if _, err := os.Stat("/etc/resolv.conf.bak"); os.IsNotExist(err) {
-			exec.Command("cp", "/etc/resolv.conf", "/etc/resolv.conf.bak").Run()
+	// 尝试从设置提供者获取
+	if s.settingsProvider != nil {
+		settings := s.settingsProvider()
+		if settings != nil && settings.DNS.Listen != "" {
+			return settings.DNS.Listen
 		}
-		// 删除符号链接并创建新文件，指向 Mihomo 的 DNS，同时保留备用 DNS
-		os.Remove("/etc/resolv.conf")
-		resolvContent := `nameserver 127.0.0.1
+	}
+
+	return defaultListen
+}
+
+// parseListenAddress 解析监听地址，返回 IP 和端口
+func (s *Service) parseListenAddress(addr string) (string, int) {
+	// 默认值
+	defaultIP := "127.0.0.1"
+	defaultPort := 53
+
+	if addr == "" {
+		return defaultIP, defaultPort
+	}
+
+	// 解析 host:port 格式
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return defaultIP, defaultPort
+	}
+
+	// 处理 0.0.0.0 的情况，转换为 127.0.0.1
+	if host == "0.0.0.0" || host == "" {
+		host = "127.0.0.1"
+	}
+
+	// 解析端口
+	port := defaultPort
+	fmt.Sscanf(portStr, "%d", &port)
+
+	return host, port
+}
+
+// configureResolvConf 配置 resolv.conf
+func (s *Service) configureResolvConf(dnsIP string, dnsPort int) {
+	// 备份 resolv.conf
+	if _, err := os.Stat("/etc/resolv.conf.bak"); os.IsNotExist(err) {
+		exec.Command("cp", "/etc/resolv.conf", "/etc/resolv.conf.bak").Run()
+	}
+
+	// 删除符号链接并创建新文件
+	os.Remove("/etc/resolv.conf")
+
+	var resolvContent string
+
+	if dnsPort == 53 {
+		// DNS 在标准端口 53，直接使用
+		resolvContent = fmt.Sprintf(`nameserver %s
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+`, dnsIP)
+		s.addLog(fmt.Sprintf("配置 resolv.conf 指向 %s:53 (备用: 8.8.8.8, 1.1.1.1)", dnsIP))
+	} else {
+		// DNS 在非标准端口，设置 iptables 重定向
+		s.addLog(fmt.Sprintf("DNS 在非标准端口 %d，设置 iptables 重定向 53 -> %d", dnsPort, dnsPort))
+
+		// 清除旧的规则（如果存在）
+		exec.Command("iptables", "-t", "nat", "-D", "OUTPUT", "-p", "udp", "--dport", "53", "-j", "REDIRECT", "--to-ports", fmt.Sprintf("%d", dnsPort)).Run()
+		exec.Command("iptables", "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "53", "-j", "REDIRECT", "--to-ports", fmt.Sprintf("%d", dnsPort)).Run()
+
+		// 添加新规则：将发往 53 端口的流量重定向到 DNS 实际端口
+		exec.Command("iptables", "-t", "nat", "-A", "OUTPUT", "-p", "udp", "--dport", "53", "-j", "REDIRECT", "--to-ports", fmt.Sprintf("%d", dnsPort)).Run()
+		exec.Command("iptables", "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "53", "-j", "REDIRECT", "--to-ports", fmt.Sprintf("%d", dnsPort)).Run()
+
+		// resolv.conf 指向 127.0.0.1 (iptables 会重定向到实际端口)
+		resolvContent = `nameserver 127.0.0.1
 nameserver 8.8.8.8
 nameserver 1.1.1.1
 `
-		os.WriteFile("/etc/resolv.conf", []byte(resolvContent), 0644)
-		s.addLog("已停止 systemd-resolved 并配置 DNS 指向 Mihomo (备用: 8.8.8.8, 1.1.1.1)")
+		s.addLog(fmt.Sprintf("已设置 iptables 重定向: 53 -> %d", dnsPort))
 	}
 
-	// 方法 2: 停止 dnsmasq（另一个常见的 DNS 服务）
-	if s.isServiceActive("dnsmasq") {
-		s.addLog("检测到 dnsmasq 服务，正在停止...")
-		exec.Command("systemctl", "stop", "dnsmasq").Run()
-		s.addLog("已停止 dnsmasq")
-	}
-
-	// 方法 3: 使用 fuser 强制杀死占用 53 端口的进程
-	if s.isPortInUse(53) {
-		s.addLog("尝试使用 fuser 释放 53 端口...")
-		exec.Command("fuser", "-k", "53/udp").Run()
-		exec.Command("fuser", "-k", "53/tcp").Run()
-		time.Sleep(time.Millisecond * 500)
-	}
-
-	// 最终检查
-	if s.isPortInUse(53) {
-		s.addLog("警告：53 端口可能仍被占用，TUN 模式可能无法正常工作")
-	} else {
-		s.addLog("53 端口已成功释放")
-	}
+	os.WriteFile("/etc/resolv.conf", []byte(resolvContent), 0644)
 }
 
 // isPortInUse 检查端口是否被占用
@@ -1133,6 +1214,13 @@ func (s *Service) restoreSystemAfterTUN() {
 		return
 	}
 
+	// 清理 iptables DNS 重定向规则
+	exec.Command("iptables", "-t", "nat", "-D", "OUTPUT", "-p", "udp", "--dport", "53", "-j", "REDIRECT", "--to-ports", "5453").Run()
+	exec.Command("iptables", "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "53", "-j", "REDIRECT", "--to-ports", "5453").Run()
+	exec.Command("iptables", "-t", "nat", "-D", "OUTPUT", "-p", "udp", "--dport", "53", "-j", "REDIRECT", "--to-ports", "1053").Run()
+	exec.Command("iptables", "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "53", "-j", "REDIRECT", "--to-ports", "1053").Run()
+	s.addLog("已清理 iptables DNS 重定向规则")
+
 	// 恢复 resolv.conf
 	if _, err := os.Stat("/etc/resolv.conf.bak"); err == nil {
 		exec.Command("cp", "/etc/resolv.conf.bak", "/etc/resolv.conf").Run()
@@ -1141,6 +1229,7 @@ func (s *Service) restoreSystemAfterTUN() {
 
 	// 重新启动 systemd-resolved
 	exec.Command("systemctl", "start", "systemd-resolved").Run()
+	exec.Command("systemctl", "enable", "systemd-resolved").Run()
 	s.addLog("已重新启动 systemd-resolved")
 }
 
