@@ -161,15 +161,12 @@ func (s *Service) checkInstalledCores() {
 }
 
 func (s *Service) getCoreBinaryPath(coreType string) string {
-	arch := runtime.GOARCH
-	goos := runtime.GOOS
-
 	var binName string
 	switch coreType {
 	case "mihomo":
-		binName = fmt.Sprintf("mihomo-%s-%s", goos, arch)
+		binName = "mihomo"
 	case "singbox":
-		binName = fmt.Sprintf("sing-box-%s-%s", goos, arch)
+		binName = "sing-box"
 	}
 
 	return filepath.Join(s.dataDir, "cores", binName)
