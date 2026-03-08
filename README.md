@@ -2,7 +2,7 @@
 
 # 🚀 P-BOX
 
-**A Modern Cross-Platform Proxy Management Panel**
+**A Modern Proxy Management Panel for Linux**
 
 Powered by Mihomo (Clash.Meta) Core | Elegant Web UI | One-Click Deployment
 
@@ -20,14 +20,14 @@ Powered by Mihomo (Clash.Meta) Core | Elegant Web UI | One-Click Deployment
 ## ✨ Features
 
 - 🎨 **Modern UI** - Beautiful Apple Glass style design with dark/light themes
-- ��️ **Cross-Platform** - Supports macOS, Windows, Linux (**OpenWrt NOT supported**)
-- 🔧 **System Proxy** - Auto-configure system proxy (macOS/Windows), no manual setup needed
+- 🐧 **Linux Only** - Optimized for Linux servers (amd64/arm64)
 - 📊 **Real-time Dashboard** - Traffic stats, connection monitoring, exit IP display
-- 📦 **Subscription Management** - Multiple subscription sources with one-click update
-- �� **Core Management** - Auto version detection, one-click download and install
+- 📦 **Subscription Management** - Multiple subscription sources with one-click update (supports YAML & JSON format)
+- 🔧 **Core Management** - Auto version detection, one-click download and install
 - ⚡ **Config Generator** - Visual rule configuration with smart routing
 - 🌐 **i18n** - Chinese/English language support
 - 🔐 **Authentication** - Built-in login system to protect the panel
+- 🚀 **Auto Deploy** - One-click installation with systemd service
 
 ## 📸 Screenshots
 
@@ -49,15 +49,14 @@ Powered by Mihomo (Clash.Meta) Core | Elegant Web UI | One-Click Deployment
 ### Linux One-Click Install (Recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/star8618/P-BOX/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/abcdqwerxsa/C-BOX/main/install.sh | sudo bash
 ```
 
 The script will:
 - Detect system architecture automatically (amd64/arm64)
-- Download the latest stable release
+- Download the latest stable release from GitHub
 - Install to `/etc/p-box`
 - Create a systemd service for auto-start
-- Configure Nginx reverse proxy
 - Start the service on port **8666**
 
 ### Manual Installation
@@ -66,16 +65,18 @@ Download pre-built binaries from the [Releases](../../releases) page:
 
 | Platform | File |
 |:---|:---|
-| macOS Apple Silicon | `p-box-darwin-arm64.tar.gz` |
-| macOS Intel | `p-box-darwin-amd64.tar.gz` |
-| Linux x64 | `p-box-linux-amd64.tar.gz` |
-| Linux ARM64 | `p-box-linux-arm64.tar.gz` |
-| Windows x64 | `p-box-windows-amd64.zip` |
+| Linux x64 | `p-box-{version}-linux-amd64.tar.gz` |
+| Linux ARM64 | `p-box-{version}-linux-arm64.tar.gz` |
 
 ```bash
-# Extract and run
+# Download (replace VERSION with actual version, e.g., 1.0.1)
+curl -LO https://github.com/abcdqwerxsa/C-BOX/releases/download/v{VERSION}/p-box-{VERSION}-linux-amd64.tar.gz
+
+# Extract
 tar -xzf p-box-*.tar.gz
 cd p-box-*
+
+# Run
 ./p-box
 ```
 
@@ -93,8 +94,8 @@ To run P-BOX from source or contribute to development:
 #### 🔨 Step-by-Step Setup
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/star8618/P-BOX.git
-   cd P-BOX
+   git clone https://github.com/abcdqwerxsa/C-BOX.git
+   cd C-BOX
    ```
 
 2. **Initialize Data Directory:**
@@ -110,23 +111,18 @@ To run P-BOX from source or contribute to development:
    cd ..
    ```
 
-4. **Setup Frontend:**
+4. **Build Frontend:**
    ```bash
    cd frontend
    npm install
+   npm run build
    cd ..
    ```
 
-#### 🚀 Running the App
-The easiest way is to use the provided startup script:
-```bash
-chmod +x start-all.sh
-./start-all.sh
-```
-Follow the prompts to choose **Development Mode** (1) or **Production Mode** (2).
-
-- **Frontend**: http://localhost:5173
-- **Backend**: http://localhost:8383
+5. **Run:**
+   ```bash
+   ./backend/p-box
+   ```
 
 ## 📁 Project Structure
 
@@ -136,14 +132,13 @@ p-box/
 │   ├── main.go              # Entry point
 │   ├── server/              # HTTP server
 │   ├── modules/             # Feature modules
-│   └── data/                # Runtime data
+│   └── config/              # Configuration
 ├── frontend/                # React Frontend
 │   ├── src/                 # Source code
 │   └── public/              # Static assets
-├── data/                    # App data (configs, cores, rules)
-├── build.sh                 # Multi-platform build script
+├── .github/workflows/       # GitHub Actions CI/CD
 ├── install.sh               # Linux installer script
-└── start-all.sh             # Development startup script
+└── config.yaml              # Default configuration
 ```
 
 ## 🛠️ Tech Stack
@@ -159,25 +154,48 @@ p-box/
 
 ## ⚙️ Configuration
 
-A default configuration file `data/config.yaml` is generated on the first run:
+A default configuration file `config.yaml`:
 
 ```yaml
-# Server port (Linux default: 8666, others: 8383)
-port: 8383
+server:
+  port: 8383
+  host: 0.0.0.0
 
-# Proxy port
-mixedPort: 7890
+data_dir: data
 
-# API secret (optional)
-secret: ""
+core:
+  type: mihomo
+  api_port: 9090
 
-# Transparent proxy mode: off, tun, tproxy
-transparentMode: "off"
+proxy:
+  mixed_port: 7890
+  socks_port: 7891
+  allow_lan: true
+  ipv6: false
+  mode: rule
+
+log:
+  level: info
+  file: data/logs/p-box.log
+  console: true
+
+security:
+  enabled: false
+  username: admin
+  password: admin123
+```
+
+## 🔄 Update
+
+To update to the latest version, simply run the install script again:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abcdqwerxsa/C-BOX/main/install.sh | sudo bash
 ```
 
 ## 🤝 Contributing
 
-Pull Requests and Issues are welcome! 
+Pull Requests and Issues are welcome!
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
